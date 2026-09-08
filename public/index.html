@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>(주)MJCT 2026년 통합 배차 및 일정 관리 시스템</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Pretendard', -apple-system, sans-serif; }
+    body { background-color: #f8fafc; margin: 0; padding: 20px; color: #0f172a; }
+    .container { max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; gap: 15px; }
+
+    .header { background: #1e293b; color: #fff; padding: 20px 25px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .header h1 { margin: 0; font-size: 1.4rem; }
+    .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* 대시보드 현황판 */
+    .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .stat-card { background: #fff; border-radius: 8px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #cbd5e1; }
+    .stat-card.total { border-left-color: #2563eb; }
+    .stat-card.active { border-left-color: #10b981; }
+    .stat-card.off { border-left-color: #f59e0b; }
+    .stat-card.canceled { border-left-color: #ef4444; }
+    .stat-title { font-size: 0.8rem; font-weight: bold; color: #64748b; margin-bottom: 5px; }
+    .stat-value { font-size: 1.4rem; font-weight: bold; color: #0f172a; }
+
+    /* 월별 업체 & 기사 운행 건수 집계 카운터 */
+    .monthly-summary-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+    .summary-box { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; }
+    .summary-title { font-size: 0.85rem; font-weight: bold; color: #1e293b; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
+    .summary-tags { display: flex; flex-wrap: wrap; gap: 6px; max-height: 90px; overflow-y: auto; padding-right: 4px; }
+    .summary-chip { font-size: 0.75rem; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; color: #334155; }
+    .summary-chip strong { color: #2563eb; }
+
+    /* 탭 버튼 */
+    .tabs { display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; }
+    .tab-btn { padding: 10px 20px; border: none; background: #e2e8f0; font-weight: bold; border-radius: 8px 8px 0 0; cursor: pointer; color: #475569; }
+    .tab-btn.active { background: #2563eb; color: #fff; }
+
+    .card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    
+    .filter-grid, .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; align-items: flex-end; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group label { font-size: 0.8rem; font-weight: bold; color: #475569; }
+    .form-group input, .form-group select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; }
+
+    .duration-badge { background-color: #e0e7ff; color: #3730a3; font-weight: bold; font-size: 0.8rem; padding: 8px; border-radius: 6px; text-align: center; border: 1px solid #c7d2fe; display: flex; align-items: center; justify-content: center; height: 35px; }
+
+    .checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: bold; color: #6b21a8; cursor: pointer; background: #f3e8ff; padding: 7px 10px; border-radius: 6px; border: 1px solid #d8b4fe; height: 35px; }
+    .checkbox-label input { accent-color: #9333ea; width: 16px; height: 16px; cursor: pointer; }
+
+    .btn { padding: 8px 14px; background-color: #2563eb; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.82rem; }
+    .btn:hover { background-color: #1d4ed8; }
+    .btn-edit { background-color: #f59e0b; }
+    .btn-cancel { background-color: #dc2626; }
+    .btn-cancel:hover { background-color: #b91c1c; }
+    .btn-restore { background-color: #10b981; }
+    .btn-secondary { background-color: #64748b; }
+    .btn-reset { background-color: #475569; }
+    .btn-share { background-color: #059669; }
+    .btn-auto { background-color: #7c3aed; }
+    .btn-auto:hover { background-color: #6d28d9; }
+
+    /* 일자별 세부 일정 입력 테이블 */
+    .daily-schedule-box { margin-top: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; }
+    .daily-schedule-row { display: grid; grid-template-columns: 100px 1fr; gap: 8px; align-items: center; margin-bottom: 6px; }
+    .daily-schedule-row:last-child { margin-bottom: 0; }
+    .daily-date-label { font-size: 0.8rem; font-weight: bold; color: #1e293b; background: #e2e8f0; padding: 6px; border-radius: 4px; text-align: center; }
+
+    /* 달력 컨트롤 */
+    .cal-control { display: flex; align-items: center; gap: 10px; }
+    .cal-control select { font-size: 1.1rem; font-weight: bold; padding: 4px 8px; border-radius: 6px; border: 1px solid #cbd5e1; }
+
+    /* 캘린더 그리드 */
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 15px; }
+    .cal-day-header { text-align: center; font-weight: bold; padding: 10px; background: #e2e8f0; border-radius: 6px; }
+    .cal-day-header.sun { color: #dc2626; }
+    .cal-day-header.sat { color: #2563eb; }
+
+    .cal-cell { height: 230px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; display: flex; flex-direction: column; overflow: hidden; }
+    .cal-cell.empty { background: #f1f5f9; border: none; }
+    .cal-date { font-weight: bold; font-size: 0.85rem; margin-bottom: 4px; display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 3px; }
+    .cal-date.sun { color: #dc2626; }
+    .cal-date.sat { color: #2563eb; }
+    .cal-count-badge { font-size: 0.7rem; background: #e2e8f0; color: #475569; padding: 1px 5px; border-radius: 10px; font-weight: normal; }
+
+    .cal-cell-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px; }
+    .cal-cell-content::-webkit-scrollbar { width: 4px; }
+    .cal-cell-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .cal-cell-content::-webkit-scrollbar-track { background: transparent; }
+
+    /* 운행 칩 */
+    .dispatch-chip { background: #eff6ff; border-left: 3px solid #2563eb; padding: 4px 5px; border-radius: 4px; font-size: 0.72rem; cursor: pointer; line-height: 1.25; transition: all 0.1s ease; }
+    .dispatch-chip:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .dispatch-chip.canceled { background: #fef2f2; border-left-color: #ef4444; opacity: 0.65; text-decoration: line-through; }
+    .dispatch-chip.offday { background: #fffbeb; border-left-color: #f59e0b; color: #b45309; }
+
+    .dispatch-chip.dual-run { background: #f3e8ff; border-left: 4px solid #9333ea; color: #581c87; }
+    .dispatch-chip.dual-run:hover { background: #e9d5ff; }
+    .dual-badge { background: #9333ea; color: #fff; font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; font-weight: bold; margin-right: 2px; display: inline-block; }
+
+    .dispatch-chip .chip-driver { font-weight: bold; color: #1e40af; }
+    .dispatch-chip.dual-run .chip-driver { color: #6b21a8; }
+    .dispatch-chip .chip-vehicle { font-weight: bold; color: #047857; }
+    .dispatch-chip .chip-comp { color: #0369a1; font-weight: 600; }
+    .dispatch-chip .chip-guide { color: #475569; font-size: 0.68rem; }
+    .dispatch-chip .chip-phone { color: #2563eb; font-size: 0.68rem; font-weight: normal; }
+
+    /* 테이블 스타일 */
+    .table-container { max-height: 600px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem; }
+    thead { position: sticky; top: 0; background-color: #f1f5f9; z-index: 10; }
+    th, td { border-bottom: 1px solid #e2e8f0; padding: 8px 6px; }
+    tr.tr-canceled { background-color: #fef2f2; color: #991b1b; text-decoration: line-through; }
+    tr.tr-offday { background-color: #fffbeb; color: #b45309; }
+    tr.tr-dual { background-color: #faf5ff; }
+
+    /* 모달 팝업 */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+    .modal-content { background: #fff; padding: 25px; border-radius: 10px; width: 90%; max-width: 680px; display: flex; flex-direction: column; gap: 12px; max-height: 90vh; overflow-y: auto; }
+    .tag-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+    .tag { background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; }
+    .tag .btn-del { color: #ef4444; font-weight: bold; cursor: pointer; border: none; background: none; padding: 0; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>📅 (주)MJCT 2026년 통합 배차 및 일정 관리 시스템</h1>
+      <span style="font-size: 0.85rem; opacity: 0.9;">현재 월 자동 열림, 기사 연락처 연동, 당일 샌딩+미팅 구분, 업체/기사별 월간 운행 집계</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-auto" onclick="document.getElementById('excelFileInput').click()">⚡ 스마트 파일 업로드 (자동 배차)</button>
+      <input type="file" id="excelFileInput" style="display:none;" accept=".xlsx, .xls, .csv" onchange="importExcelForAutoDispatch(event)">
+      
+      <button class="btn btn-secondary" onclick="downloadTemplate()">📄 양식 샘플 다운로드</button>
+      <button class="btn btn-secondary" onclick="openMasterModal()">⚙️ 기사/차량/업체 관리</button>
+      <button class="btn btn-share" onclick="exportJSON()">📥 백업 내보내기</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">📤 백업 불러오기</button>
+      <input type="file" id="fileInput" style="display:none;" accept=".json" onchange="importJSON(event)">
+    </div>
+  </div>
+
+  <div class="dashboard">
+    <div class="stat-card total">
+      <div class="stat-title">📋 총 등록 건수</div>
+      <div class="stat-value" id="statTotal">0건</div>
+    </div>
+    <div class="stat-card active">
+      <div class="stat-title">✅ 정상 운행 건수</div>
+      <div class="stat-value" id="statActive">0건</div>
+    </div>
+    <div class="stat-card off">
+      <div class="stat-title">🛠️ 비운행 일정 (휴가/점검 등)</div>
+      <div class="stat-value" id="statOff">0건</div>
+    </div>
+    <div class="stat-card canceled">
+      <div class="stat-title">🚫 배차 취소 건수</div>
+      <div class="stat-value" id="statCanceled">0건</div>
+    </div>
+  </div>
+
+  <div class="card" style="background-color: #f1f5f9; border: 1px solid #cbd5e1;">
+    <div style="font-weight: bold; margin-bottom: 8px; color: #1e293b; display: flex; justify-content: space-between;">
+      <span>🔍 배차 및 일정 상세 필터링</span>
+      <span id="filterCount" style="font-size: 0.8rem; color: #2563eb;"></span>
+    </div>
+    <div class="filter-grid">
+      <div class="form-group">
+        <label>구분/상태 필터</label>
+        <select id="filterType" onchange="applyFilters()">
+          <option value="">전체 보기</option>
+          <option value="ACTIVE" selected>✅ 정상 운행만</option>
+          <option value="DUAL">🟣 당일 샌딩+미팅만</option>
+          <option value="OFF">🛠️ 비운행 일정만</option>
+          <option value="CANCELED">🚫 취소 건만</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>👨‍✈️ 기사님</label>
+        <select id="filterDriver" onchange="applyFilters()"><option value="">전체 기사님</option></select>
+      </div>
+      <div class="form-group">
+        <label>🚌 차량번호</label>
+        <select id="filterVehicle" onchange="applyFilters()"><option value="">전체 차량</option></select>
+      </div>
+      <div class="form-group">
+        <label>🏢 업체명</label>
+        <select id="filterCompany" onchange="applyFilters()"><option value="">전체 업체</option></select>
+      </div>
+      <div class="form-group">
+        <button class="btn btn-reset" onclick="resetFilters()">필터 초기화</button>
+      </div>
+    </div>
+
+    <div class="monthly-summary-container">
+      <div class="summary-box">
+        <div class="summary-title">
+          <span>🏢 업체별 운행 건수 (<span id="sumMonthText1">월</span>)</span>
+          <span style="font-size: 0.75rem; color: #64748b;" id="compTotalSum">총 0건</span>
+        </div>
+        <div class="summary-tags" id="companySummaryTags"></div>
+      </div>
+
+      <div class="summary-box">
+        <div class="summary-title">
+          <span>👨‍✈️ 기사님별 운행 건수 (<span id="sumMonthText2">월</span>)</span>
+          <span style="font-size: 0.75rem; color: #64748b;" id="driverTotalSum">총 0건</span>
+        </div>
+        <div class="summary-tags" id="driverSummaryTags"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchView('calendar')">📅 달력(캘린더) 보기</button>
+    <button class="tab-btn" onclick="switchView('table')">📊 엑셀 표 목록 보기</button>
+  </div>
+
+  <div class="card">
+    <div style="font-weight: bold; margin-bottom: 12px; color: #1e293b;">➕ 수동 배차 / 비운행 일정 등록</div>
+    <form id="addForm">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>등록 구분</label>
+          <select id="addCategory" onchange="toggleCategoryInput()">
+            <option value="DISPATCH">🚌 운행 배차</option>
+            <option value="OFF">🛠️ 비운행 일정 (프리데이/점검/휴가)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>운행 시작일</label>
+          <input type="date" id="addStartDate" onchange="generateAddDailyInputs()" required>
+        </div>
+        <div class="form-group">
+          <label>운행 마감일</label>
+          <input type="date" id="addEndDate" onchange="generateAddDailyInputs()" required>
+        </div>
+        <div class="form-group">
+          <label>일정 기간</label>
+          <div class="duration-badge" id="addDurationBadge">당일 운행</div>
+        </div>
+        <div class="form-group">
+          <label>특수 일정 설정</label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="addIsDualRun"> 🟣 당일 샌딩+미팅 (연속)
+          </label>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-top: 10px;">
+        <div class="form-group">
+          <label>👨‍✈️ 기사명</label>
+          <select id="addDriver" onchange="autoFillDriverPhone('add')" required></select>
+        </div>
+        <div class="form-group">
+          <label>📞 기사 연락처</label>
+          <input type="text" id="addDriverPhone" placeholder="예: 010-1234-5678">
+        </div>
+        <div class="form-group">
+          <label>🚌 차량번호</label>
+          <select id="addVehicle" required></select>
+        </div>
+        <div class="form-group" id="groupCompany">
+          <label>🏢 업체명</label>
+          <select id="addCompany" required></select>
+        </div>
+      </div>
+
+      <div class="form-grid" id="groupGuide" style="margin-top: 10px; grid-template-columns: 1fr 1fr;">
+        <div class="form-group">
+          <label>🚩 가이드 성함</label>
+          <input type="text" id="addGuideName" placeholder="예: 홍길동">
+        </div>
+        <div class="form-group">
+          <label>📞 가이드 연락처</label>
+          <input type="text" id="addGuidePhone" placeholder="예: 010-1234-5678">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 10px;">
+        <label id="lblDetail">🗓️ 일자별 상세 일정 내용 기재</label>
+        <div class="daily-schedule-box" id="addDailyBox"></div>
+      </div>
+
+      <div style="margin-top: 12px; text-align: right;">
+        <button type="submit" class="btn" style="height: 38px; padding: 0 25px;">등록 완료</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="calendarView" class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+      <div class="cal-control">
+        <button class="btn btn-secondary" onclick="changeMonth(-1)">◀ 이전달</button>
+        <select id="calendarMonthSelect" onchange="onMonthSelectChange()"></select>
+        <button class="btn btn-secondary" onclick="changeMonth(1)">다음달 ▶</button>
+      </div>
+      <span style="font-size: 0.85rem; color: #64748b;">* 하루 12대 이상 운행 시 날짜 칸 내부에서 스크롤하여 전체 차량을 편리하게 확인 가능합니다.</span>
+    </div>
+    <div class="calendar-grid">
+      <div class="cal-day-header sun">일</div>
+      <div class="cal-day-header">월</div>
+      <div class="cal-day-header">화</div>
+      <div class="cal-day-header">수</div>
+      <div class="cal-day-header">목</div>
+      <div class="cal-day-header">금</div>
+      <div class="cal-day-header sat">토</div>
+    </div>
+    <div class="calendar-grid" id="calendarBody"></div>
+  </div>
+
+  <div id="tableView" class="card" style="display: none;">
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 140px;">운행 기간</th>
+            <th style="width: 80px;">일정</th>
+            <th style="width: 90px;">구분</th>
+            <th style="width: 130px;">기사 정보 (성함/연락처)</th>
+            <th style="width: 80px;">차량번호</th>
+            <th style="width: 100px;">업체명</th>
+            <th style="width: 130px;">가이드 정보</th>
+            <th>일자별 상세 내용</th>
+            <th style="width: 80px;">관리</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="editModal">
+  <div class="modal-content">
+    <h3 style="margin:0;">✏️ 일정 상세 수정 및 상태 변경</h3>
+    <input type="hidden" id="editId">
+    
+    <div class="form-grid" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="form-group">
+        <label>운행 시작일</label>
+        <input type="date" id="editStartDate" onchange="generateEditDailyInputs()">
+      </div>
+      <div class="form-group">
+        <label>운행 마감일</label>
+        <input type="date" id="editEndDate" onchange="generateEditDailyInputs()">
+      </div>
+      <div class="form-group">
+        <label>특수 일정 설정</label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="editIsDualRun"> 🟣 당일 샌딩+미팅
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>일정 기간</label>
+      <div class="duration-badge" id="editDurationBadge">당일 운행</div>
+    </div>
+
+    <div class="form-grid" style="grid-template-columns: repeat(4, 1fr);">
+      <div class="form-group">
+        <label>👨‍✈️ 기사명</label>
+        <select id="editDriver" onchange="autoFillDriverPhone('edit')"></select>
+      </div>
+      <div class="form-group">
+        <label>📞 기사 연락처</label>
+        <input type="text" id="editDriverPhone">
+      </div>
+      <div class="form-group">
+        <label>🚌 차량번호</label>
+        <select id="editVehicle"></select>
+      </div>
+      <div class="form-group" id="groupEditCompany">
+        <label>🏢 업체명</label>
+        <select id="editCompany"></select>
+      </div>
+    </div>
+
+    <div class="form-grid" id="groupEditGuide" style="grid-template-columns: 1fr 1fr;">
+      <div class="form-group">
+        <label>🚩 가이드 성함</label>
+        <input type="text" id="editGuideName">
+      </div>
+      <div class="form-group">
+        <label>📞 가이드 연락처</label>
+        <input type="text" id="editGuidePhone">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>🗓️ 일자별 상세 일정 내용 수정</label>
+      <div class="daily-schedule-box" id="editDailyBox"></div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+      <button class="btn btn-cancel" id="btnToggleCancel" onclick="toggleCancelStatus()">🚫 배차 취소 처리</button>
+      <div>
+        <button class="btn btn-secondary" onclick="closeModal('editModal')">닫기</button>
+        <button class="btn btn-edit" onclick="saveEdit()">수정 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="masterModal">
+  <div class="modal-content">
+    <h3 style="margin:0;">⚙️ 기사 / 차량 / 업체 목록 관리</h3>
+    <p style="font-size:0.8rem; color:#64748b; margin:0;">새로운 기사/차량/업체가 업로드되면 자동으로 등록되며, 필요 시 직접 편집이 가능합니다.</p>
+    
+    <div>
+      <label style="font-size:0.85rem; font-weight:bold;">👨‍✈️ 기사 목록 및 기본 연락처 관리</label>
+      <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:6px; margin-top:4px;">
+        <input type="text" id="newDriverNameInput" placeholder="신규 기사 성함">
+        <input type="text" id="newDriverPhoneInput" placeholder="연락처 (선택)">
+        <button class="btn" onclick="addDriverMaster()">추가</button>
+      </div>
+      <div class="tag-container" id="driverTags"></div>
+    </div>
+
+    <div>
+      <label style="font-size:0.85rem; font-weight:bold;">🚌 차량 목록 관리</label>
+      <div style="display:flex; gap:6px; margin-top:4px;">
+        <input type="text" id="newVehicleInput" placeholder="신규 차량 번호">
+        <button class="btn" onclick="addMasterItem('vehicles', 'newVehicleInput')">추가</button>
+      </div>
+      <div class="tag-container" id="vehicleTags"></div>
+    </div>
+
+    <div>
+      <label style="font-size:0.85rem; font-weight:bold;">🏢 업체 목록 관리</label>
+      <div style="display:flex; gap:6px; margin-top:4px;">
+        <input type="text" id="newCompanyInput" placeholder="신규 업체명">
+        <button class="btn" onclick="addMasterItem('companies', 'newCompanyInput')">추가</button>
+      </div>
+      <div class="tag-container" id="companyTags"></div>
+    </div>
+
+    <div style="text-align: right; margin-top: 10px;">
+      <button class="btn btn-secondary" onclick="closeModal('masterModal')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // =========================================================
+  // 1. 서버 연동 설정 (백엔드 API 주소)
+  // =========================================================
+  const SERVER_IP = window.location.hostname || 'localhost'; 
+  const API_BASE_URL = `http://${SERVER_IP}:3000/api`;
+
+  const today = new Date();
+  let currentYear = today.getFullYear();
+  let currentMonth = today.getMonth() + 1; // 1~12
+
+  const defaultMasters = {
+    driverMap: {
+      "임종택": "010-0000-0001",
+      "이원길": "010-0000-0002",
+      "전민수": "010-0000-0003",
+      "이현우": "010-0000-0004",
+      "박치왕": "010-0000-0005",
+      "윤종훈": "010-0000-0006",
+      "강승찬": "010-0000-0007",
+      "김상현": "010-0000-0008",
+      "이시우": "010-0000-0009",
+      "염문철": "010-0000-0010",
+      "박현준": "010-0000-0011",
+      "유상억": "010-0000-0012"
+    },
+    drivers: ["임종택", "이원길", "전민수", "이현우", "박치왕", "윤종훈", "강승찬", "김상현", "이시우", "염문철", "박현준", "유상억"],
+    vehicles: ["5800", "5801", "5802", "5803", "5805", "5806", "5807", "5812", "5813", "8471", "4931", "8331", "개인차량"],
+    companies: ["MJCT", "화푸투어", "말스", "브라더", "신리", "아성", "엠지", "해성", "미트래블", "천천", "오미", "이지엘", "숨고", "기타/비운행"]
+  };
+
+  const defaultData = [];
+
+  let masters = JSON.parse(localStorage.getItem('mjct_masters')) || defaultMasters;
+  if (!masters.driverMap) masters.driverMap = {};
+
+  let dispatches = JSON.parse(localStorage.getItem('mjct_cal_data')) || defaultData;
+  let filteredDispatches = [...dispatches];
+
+  // =========================================================
+  // 2. 서버 데이터 읽기 및 저장 (실시간 동기화)
+  // =========================================================
+  async function loadData() {
+    try {
+      const [resMasters, resDispatches] = await Promise.all([
+        fetch(`${API_BASE_URL}/masters`),
+        fetch(`${API_BASE_URL}/dispatches`)
+      ]);
+
+      if (resMasters.ok) {
+        const mData = await resMasters.json();
+        if (mData && Object.keys(mData).length > 0) masters = mData;
+      }
+      
+      if (resDispatches.ok) {
+        const dData = await resDispatches.json();
+        if (dData) dispatches = dData;
+      }
+
+      updateAllDropdowns();
+      updateStats();
+      applyFilters();
+    } catch (err) {
+      // 서버 연결 실패 시 LocalStorage 기본 모드로 동작
+      updateAllDropdowns();
+      updateStats();
+      applyFilters();
+    }
+  }
+
+  async function saveData(msg = null) {
+    localStorage.setItem('mjct_masters', JSON.stringify(masters));
+    localStorage.setItem('mjct_cal_data', JSON.stringify(dispatches));
+
+    // 서버에 데이터 동기화 전송
+    try {
+      await fetch(`${API_BASE_URL}/masters`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(masters)
+      });
+
+      await fetch(`${API_BASE_URL}/dispatches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dispatches)
+      });
+    } catch (e) {
+      console.warn("서버 저장 실패: 로컬 브라우저 저장 완료");
+    }
+
+    updateAllDropdowns();
+    updateStats();
+    applyFilters();
+
+    if (msg) alert(`✅ ${msg}`);
+  }
+
+  function initMonthSelect() {
+    const select = document.getElementById('calendarMonthSelect');
+    select.innerHTML = '';
+    for (let m = 1; m <= 12; m++) {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = `${currentYear}년 ${m}월`;
+      if (m === currentMonth) opt.selected = true;
+      select.appendChild(opt);
+    }
+    syncFormDateWithSelectedMonth();
+  }
+
+  function syncFormDateWithSelectedMonth() {
+    const monthStr = String(currentMonth).padStart(2, '0');
+    const defaultDate = `${currentYear}-${monthStr}-01`;
+    
+    document.getElementById('addStartDate').value = defaultDate;
+    document.getElementById('addEndDate').value = defaultDate;
+    generateAddDailyInputs();
+  }
+
+  function onMonthSelectChange() {
+    currentMonth = parseInt(document.getElementById('calendarMonthSelect').value);
+    syncFormDateWithSelectedMonth();
+    applyFilters();
+  }
+
+  function changeMonth(delta) {
+    currentMonth += delta;
+    if (currentMonth < 1) currentMonth = 1;
+    if (currentMonth > 12) currentMonth = 12;
+    document.getElementById('calendarMonthSelect').value = currentMonth;
+    syncFormDateWithSelectedMonth();
+    applyFilters();
+  }
+
+  function autoFillDriverPhone(prefix) {
+    const driverSelect = document.getElementById(prefix + 'Driver');
+    const phoneInput = document.getElementById(prefix + 'DriverPhone');
+    const name = driverSelect.value;
+    if (name && masters.driverMap && masters.driverMap[name]) {
+      phoneInput.value = masters.driverMap[name];
+    }
+  }
+
+  function getDurationDays(startStr, endStr) {
+    if (!startStr || !endStr) return [];
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    if (end < start) return [];
+
+    const dates = [];
+    let curr = new Date(start);
+    while (curr <= end) {
+      const y = curr.getFullYear();
+      const m = String(curr.getMonth() + 1).padStart(2, '0');
+      const d = String(curr.getDate()).padStart(2, '0');
+      dates.push(`${y}-${m}-${d}`);
+      curr.setDate(curr.getDate() + 1);
+    }
+    return dates;
+  }
+
+  function getDurationText(startStr, endStr) {
+    const dates = getDurationDays(startStr, endStr);
+    if (dates.length === 0) return "⚠️ 마감일 오류";
+    if (dates.length === 1) return "당일 운행";
+    return `${dates.length - 1}박 ${dates.length}일`;
+  }
+
+  function formatDateString(val) {
+    if (!val) return null;
+    if (val instanceof Date) {
+      if (isNaN(val.getTime())) return null;
+      return `${val.getFullYear()}-${String(val.getMonth() + 1).padStart(2, '0')}-${String(val.getDate()).padStart(2, '0')}`;
+    }
+
+    let str = String(val).trim();
+    if (str.includes('T')) str = str.split('T')[0];
+    if (str.includes(' ')) str = str.split(' ')[0];
+
+    str = str.replace(/년\s*/g, '-').replace(/월\s*/g, '-').replace(/일\s*/g, '');
+
+    if (typeof val === 'number' || /^\d+$/.test(str)) {
+      const num = Number(str);
+      if (num >= 20200101 && num <= 20301231) {
+        const s = String(num);
+        return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+      }
+      if (typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
+        try {
+          const date = XLSX.SSF.parse_date_code(num);
+          if (date && date.y && date.m && date.d) {
+            return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
+          }
+        } catch(e) {}
+      }
+    }
+
+    str = str.replace(/[\.\/]/g, '-');
+    const parts = str.split('-').filter(p => p !== '');
+    if (parts.length === 3) {
+      let y = parts[0];
+      let m = parts[1].padStart(2, '0');
+      let d = parts[2].padStart(2, '0');
+      if (y.length === 2) y = '20' + y;
+      if (y.length === 4 && !isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        return `${y}-${m}-${d}`;
+      }
+    }
+    return null;
+  }
+
+  function getRowValue(row, possibleKeys) {
+    const keys = Object.keys(row);
+    for (const pk of possibleKeys) {
+      const matchedKey = keys.find(k => k.toLowerCase().replace(/[^a-z0-9가-힣]/g, '') === pk.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''));
+      if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null && String(row[matchedKey]).trim() !== "") {
+        return row[matchedKey];
+      }
+    }
+    return "";
+  }
+
+  function importExcelForAutoDispatch(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonRows = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" });
+
+        if (jsonRows.length === 0) {
+          alert('⚠️ 파일에 데이터가 존재하지 않습니다.');
+          return;
+        }
+
+        let successCount = 0;
+        let failCount = 0;
+
+        jsonRows.forEach(row => {
+          const rawStart = getRowValue(row, ['시작일', '운행시작일', '시작일자', '시작', 'startdate', 'start', '날짜']);
+          const rawEnd = getRowValue(row, ['마감일', '운행마감일', '종료일', '마감일자', '종료일자', '종료', 'enddate', 'end']);
+          const companyRaw = getRowValue(row, ['업체명', '업체', '거래처', '상호', 'company']) || 'MJCT';
+          const guideName = getRowValue(row, ['가이드성함', '가이드명', '가이드', '담당자', 'guidename', 'guide']);
+          const guidePhone = getRowValue(row, ['가이드연락처', '가이드전화', '연락처', '전화번호', 'guidephone', 'phone']);
+          const driverPhone = getRowValue(row, ['기사연락처', '기사전화', 'driverphone']);
+          const detailContent = getRowValue(row, ['상세내용', '일정내용', '일정', '내용', '비고', 'details', 'detail']) || '운행 일정';
+
+          const startDate = formatDateString(rawStart);
+          const endDate = formatDateString(rawEnd) || startDate;
+
+          if (!startDate) {
+            failCount++;
+            return;
+          }
+
+          let assignedDriver = getRowValue(row, ['기사명', '기사', '운전기사', 'driver']);
+          let assignedVehicle = getRowValue(row, ['차량번호', '차량', 'vehicle']);
+
+          if (assignedDriver && !masters.drivers.includes(assignedDriver)) {
+            masters.drivers.push(assignedDriver);
+          }
+          if (assignedDriver && driverPhone) {
+            masters.driverMap[assignedDriver] = driverPhone;
+          }
+          if (assignedVehicle && !masters.vehicles.includes(assignedVehicle)) masters.vehicles.push(assignedVehicle);
+          if (companyRaw && !masters.companies.includes(companyRaw)) masters.companies.push(companyRaw);
+
+          if (!assignedDriver || !assignedVehicle) {
+            const availablePair = findAvailableDriverVehicle(startDate, endDate);
+            if (availablePair) {
+              assignedDriver = assignedDriver || availablePair.driver;
+              assignedVehicle = assignedVehicle || availablePair.vehicle;
+            } else {
+              assignedDriver = assignedDriver || masters.drivers[0] || "미정";
+              assignedVehicle = assignedVehicle || masters.vehicles[0] || "미정";
+            }
+          }
+
+          const isDualRun = detailContent.includes('샌딩') && detailContent.includes('미팅');
+          const dates = getDurationDays(startDate, endDate);
+          const dailyDetails = {};
+          dates.forEach((d, idx) => {
+            dailyDetails[d] = dates.length > 1 ? `${detailContent} (${idx + 1}일차)` : detailContent;
+          });
+
+          dispatches.push({
+            id: Date.now() + Math.floor(Math.random() * 100000),
+            startDate,
+            endDate,
+            driver: assignedDriver,
+            driverPhone: driverPhone || masters.driverMap[assignedDriver] || "",
+            vehicle: assignedVehicle,
+            company: companyRaw,
+            guideName,
+            guidePhone,
+            dailyDetails,
+            type: 'DISPATCH',
+            isDualRun: isDualRun,
+            status: 'ACTIVE'
+          });
+          successCount++;
+        });
+
+        event.target.value = '';
+        saveData(`총 ${successCount}건의 일정이 자동 업로드 처리되었습니다.` + (failCount > 0 ? ` (날짜 누락 ${failCount}건 제외)` : ''));
+
+      } catch (err) {
+        console.error(err);
+        alert('⚠️ 파일 업로드 처리 중 오류가 발생했습니다.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function downloadTemplate() {
+    const sampleData = [
+      {
+        "시작일": `${currentYear}-${String(currentMonth).padStart(2, '0')}-10`,
+        "마감일": `${currentYear}-${String(currentMonth).padStart(2, '0')}-10`,
+        "업체명": "화푸투어",
+        "기사명": "전민수",
+        "기사연락처": "010-1234-5678",
+        "차량번호": "5807",
+        "가이드성함": "김가이드",
+        "가이드연락처": "010-9999-8888",
+        "상세내용": "06:00 샌딩 후 14:00 미팅 진행"
+      }
+    ];
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "배차_양식");
+    XLSX.writeFile(wb, "MJCT_2026_통합배차_양식.xlsx");
+  }
+
+  function findAvailableDriverVehicle(startDate, endDate) {
+    const targetDates = getDurationDays(startDate, endDate);
+    for (let i = 0; i < masters.drivers.length; i++) {
+      const driver = masters.drivers[i];
+      const vehicle = masters.vehicles[i] || masters.vehicles[0];
+
+      const isBusy = dispatches.some(item => {
+        if (item.status === 'CANCELED') return false;
+        if (item.driver !== driver) return false;
+        const itemDates = getDurationDays(item.startDate, item.endDate);
+        return targetDates.some(d => itemDates.includes(d));
+      });
+
+      if (!isBusy) return { driver, vehicle };
+    }
+    return null;
+  }
+
+  function generateAddDailyInputs() {
+    const start = document.getElementById('addStartDate').value;
+    const end = document.getElementById('addEndDate').value;
+    const dates = getDurationDays(start, end);
+    const box = document.getElementById('addDailyBox');
+
+    document.getElementById('addDurationBadge').innerText = getDurationText(start, end);
+
+    if (dates.length === 0) {
+      box.innerHTML = '<div style="color:#ef4444; font-size:0.8rem;">마감일은 시작일보다 이전일 수 없습니다.</div>';
+      return;
+    }
+
+    box.innerHTML = dates.map(d => {
+      const monthDay = d.slice(5);
+      return `
+        <div class="daily-schedule-row">
+          <div class="daily-date-label">${monthDay}</div>
+          <input type="text" class="add-daily-input" data-date="${d}" placeholder="${monthDay} 일정 내용 입력" required>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function generateEditDailyInputs(existingDetails = {}) {
+    const start = document.getElementById('editStartDate').value;
+    const end = document.getElementById('editEndDate').value;
+    const dates = getDurationDays(start, end);
+    const box = document.getElementById('editDailyBox');
+
+    document.getElementById('editDurationBadge').innerText = getDurationText(start, end);
+
+    if (dates.length === 0) {
+      box.innerHTML = '<div style="color:#ef4444; font-size:0.8rem;">마감일은 시작일보다 이전일 수 없습니다.</div>';
+      return;
+    }
+
+    box.innerHTML = dates.map(d => {
+      const monthDay = d.slice(5);
+      const val = existingDetails[d] || '';
+      return `
+        <div class="daily-schedule-row">
+          <div class="daily-date-label">${monthDay}</div>
+          <input type="text" class="edit-daily-input" data-date="${d}" value="${val}" placeholder="${monthDay} 일정 내용 입력" required>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function updateAllDropdowns() {
+    populateSelect('addDriver', masters.drivers, '기사 선택');
+    populateSelect('addVehicle', masters.vehicles, '차량 선택');
+    populateSelect('addCompany', masters.companies, '업체 선택');
+
+    populateSelect('editDriver', masters.drivers);
+    populateSelect('editVehicle', masters.vehicles);
+    populateSelect('editCompany', masters.companies);
+
+    const fDriver = document.getElementById('filterDriver').value;
+    const fVehicle = document.getElementById('filterVehicle').value;
+    const fCompany = document.getElementById('filterCompany').value;
+
+    populateSelect('filterDriver', masters.drivers, '전체 기사님');
+    populateSelect('filterVehicle', masters.vehicles, '전체 차량');
+    populateSelect('filterCompany', masters.companies, '전체 업체');
+
+    document.getElementById('filterDriver').value = fDriver;
+    document.getElementById('filterVehicle').value = fVehicle;
+    document.getElementById('filterCompany').value = fCompany;
+
+    autoFillDriverPhone('add');
+  }
+
+  function populateSelect(elemId, items, defaultText = null) {
+    const select = document.getElementById(elemId);
+    if (!select) return;
+    let html = defaultText ? `<option value="">${defaultText}</option>` : '';
+    items.forEach(item => {
+      html += `<option value="${item}">${item}</option>`;
+    });
+    select.innerHTML = html;
+  }
+
+  function updateStats() {
+    const total = dispatches.length;
+    const active = dispatches.filter(d => d.type !== 'OFF' && d.status === 'ACTIVE').length;
+    const off = dispatches.filter(d => d.type === 'OFF' && d.status !== 'CANCELED').length;
+    const canceled = dispatches.filter(d => d.status === 'CANCELED').length;
+
+    document.getElementById('statTotal').innerText = `${total}건`;
+    document.getElementById('statActive').innerText = `${active}건`;
+    document.getElementById('statOff').innerText = `${off}건`;
+    document.getElementById('statCanceled').innerText = `${canceled}건`;
+  }
+
+  function updateMonthlySummary() {
+    const monthPrefix = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+    document.getElementById('sumMonthText1').innerText = `${currentMonth}월`;
+    document.getElementById('sumMonthText2').innerText = `${currentMonth}월`;
+
+    const monthlyItems = filteredDispatches.filter(item => {
+      if (item.status === 'CANCELED' || item.type === 'OFF') return false;
+      return (item.startDate && item.startDate.startsWith(monthPrefix)) || (item.endDate && item.endDate.startsWith(monthPrefix));
+    });
+
+    const companyCounts = {};
+    const driverCounts = {};
+    let totalCount = monthlyItems.length;
+
+    monthlyItems.forEach(item => {
+      if (item.company) companyCounts[item.company] = (companyCounts[item.company] || 0) + 1;
+      if (item.driver) driverCounts[item.driver] = (driverCounts[item.driver] || 0) + 1;
+    });
+
+    const compBox = document.getElementById('companySummaryTags');
+    const sortedComps = Object.entries(companyCounts).sort((a,b) => b[1] - a[1]);
+    compBox.innerHTML = sortedComps.length > 0 ? sortedComps.map(([comp, count]) => `
+      <div class="summary-chip">${comp}: <strong>${count}건</strong></div>
+    `).join('') : '<span style="font-size:0.75rem; color:#94a3b8;">해당 월 운행 내역 없음</span>';
+    document.getElementById('compTotalSum').innerText = `월 총 ${totalCount}건`;
+
+    const driverBox = document.getElementById('driverSummaryTags');
+    const sortedDrivers = Object.entries(driverCounts).sort((a,b) => b[1] - a[1]);
+    driverBox.innerHTML = sortedDrivers.length > 0 ? sortedDrivers.map(([driver, count]) => `
+      <div class="summary-chip">${driver}: <strong>${count}건</strong></div>
+    `).join('') : '<span style="font-size:0.75rem; color:#94a3b8;">해당 월 운행 내역 없음</span>';
+    document.getElementById('driverTotalSum').innerText = `월 총 ${totalCount}건`;
+  }
+
+  function applyFilters() {
+    const filterType = document.getElementById('filterType').value;
+    const driver = document.getElementById('filterDriver').value;
+    const vehicle = document.getElementById('filterVehicle').value;
+    const company = document.getElementById('filterCompany').value;
+
+    filteredDispatches = dispatches.filter(item => {
+      let matchType = true;
+      if (filterType === 'ACTIVE') matchType = item.type !== 'OFF' && item.status === 'ACTIVE';
+      else if (filterType === 'DUAL') matchType = item.isDualRun && item.status === 'ACTIVE';
+      else if (filterType === 'OFF') matchType = item.type === 'OFF' && item.status !== 'CANCELED';
+      else if (filterType === 'CANCELED') matchType = item.status === 'CANCELED';
+
+      const matchDriver = !driver || item.driver === driver;
+      const matchVehicle = !vehicle || item.vehicle === vehicle;
+      const matchCompany = !company || item.company === company;
+
+      return matchType && matchDriver && matchVehicle && matchCompany;
+    });
+
+    document.getElementById('filterCount').innerText = `검색 결과: 총 ${filteredDispatches.length}건`;
+
+    updateMonthlySummary();
+    renderCalendar();
+    renderTable();
+  }
+
+  function resetFilters() {
+    document.getElementById('filterType').value = 'ACTIVE';
+    document.getElementById('filterDriver').value = '';
+    document.getElementById('filterVehicle').value = '';
+    document.getElementById('filterCompany').value = '';
+    applyFilters();
+  }
+
+  function renderCalendar() {
+    const calBody = document.getElementById('calendarBody');
+    calBody.innerHTML = '';
+
+    const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
+    const totalDays = new Date(currentYear, currentMonth, 0).getDate();
+
+    for (let i = 0; i < firstDay; i++) {
+      calBody.appendChild(Object.assign(document.createElement('div'), { className: 'cal-cell empty' }));
+    }
+
+    for (let day = 1; day <= totalDays; day++) {
+      const monthStr = String(currentMonth).padStart(2, '0');
+      const dayStr = String(day).padStart(2, '0');
+      const dateStr = `${currentYear}-${monthStr}-${dayStr}`;
+      const dayOfWeek = (firstDay + day - 1) % 7;
+
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell';
+
+      let dateClass = '';
+      if (dayOfWeek === 0) dateClass = 'sun';
+      if (dayOfWeek === 6) dateClass = 'sat';
+
+      const dayData = filteredDispatches.filter(d => dateStr >= d.startDate && dateStr <= d.endDate);
+      const activeCount = dayData.filter(d => d.status !== 'CANCELED').length;
+
+      const countBadge = activeCount > 0 ? `<span class="cal-count-badge">${activeCount}대</span>` : '';
+      cell.innerHTML = `
+        <div class="cal-date ${dateClass}">
+          <span>${day}일</span>
+          ${countBadge}
+        </div>
+        <div class="cal-cell-content"></div>
+      `;
+
+      const contentBox = cell.querySelector('.cal-cell-content');
+
+      dayData.forEach(item => {
+        const isCanceled = item.status === 'CANCELED';
+        const isOff = item.type === 'OFF';
+        const isDual = item.isDualRun;
+        const dailyDetail = (item.dailyDetails && item.dailyDetails[dateStr]) ? item.dailyDetails[dateStr] : '-';
+
+        const chip = document.createElement('div');
+        let chipClass = 'dispatch-chip';
+        if (isCanceled) chipClass += ' canceled';
+        else if (isOff) chipClass += ' offday';
+        else if (isDual) chipClass += ' dual-run';
+        chip.className = chipClass;
+
+        let badge = '';
+        if (isCanceled) badge = '<span class="dual-badge" style="background:#ef4444;">취소</span>';
+        else if (isOff) badge = '<span class="dual-badge" style="background:#f59e0b;">비운행</span>';
+        else if (isDual) badge = '<span class="dual-badge">샌딩+미팅</span>';
+
+        const compText = isOff ? '' : `<span class="chip-comp">[${item.company}]</span> `;
+        const driverPhoneText = item.driverPhone ? `<span class="chip-phone">(${item.driverPhone})</span>` : '';
+        const guideText = (!isOff && item.guideName) ? `<div class="chip-guide">🚩${item.guideName} (${item.guidePhone || ''})</div>` : '';
+
+        chip.innerHTML = `${badge}${compText}<span class="chip-driver">${item.driver}</span>${driverPhoneText} <span class="chip-vehicle">(${item.vehicle})</span>${guideText}📌 ${dailyDetail}`;
+        chip.onclick = () => openEditModal(item.id);
+        contentBox.appendChild(chip);
+      });
+
+      calBody.appendChild(cell);
+    }
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+
+    filteredDispatches.sort((a,b) => a.startDate.localeCompare(b.startDate)).forEach(item => {
+      const isCanceled = item.status === 'CANCELED';
+      const isOff = item.type === 'OFF';
+      const isDual = item.isDualRun;
+      const durText = getDurationText(item.startDate, item.endDate);
+
+      const tr = document.createElement('tr');
+      if (isCanceled) tr.className = 'tr-canceled';
+      else if (isOff) tr.className = 'tr-offday';
+      else if (isDual) tr.className = 'tr-dual';
+
+      let statusBadge = '<span style="color:#10b981; font-weight:bold;">운행</span>';
+      if (isCanceled) statusBadge = '<span style="color:#ef4444; font-weight:bold;">취소</span>';
+      else if (isOff) statusBadge = '<span style="color:#f59e0b; font-weight:bold;">비운행</span>';
+      else if (isDual) statusBadge = '<span style="color:#9333ea; font-weight:bold;">🟣샌딩+미팅</span>';
+
+      const dateDisplay = (item.startDate === item.endDate) ? item.startDate : `${item.startDate} ~ ${item.endDate}`;
+
+      let dailyHtml = '';
+      if (item.dailyDetails) {
+        dailyHtml = Object.entries(item.dailyDetails).map(([d, txt]) => `<div><strong>${d.slice(5)}:</strong> ${txt}</div>`).join('');
+      }
+
+      const driverDisplay = `<strong>${item.driver}</strong>` + (item.driverPhone ? `<br><span style="font-size:0.75rem; color:#2563eb;">${item.driverPhone}</span>` : '');
+      const guideDisplay = (isOff || !item.guideName) ? '-' : `<strong>${item.guideName}</strong><br><span style="font-size:0.75rem; color:#64748b;">${item.guidePhone || ''}</span>`;
+
+      tr.innerHTML = `
+        <td><strong>${dateDisplay}</strong></td>
+        <td><span style="color:#3730a3; font-weight:bold; background:#e0e7ff; padding:2px 6px; border-radius:4px; font-size:0.75rem;">${durText}</span></td>
+        <td>${statusBadge}</td>
+        <td>${driverDisplay}</td>
+        <td>${item.vehicle}</td>
+        <td><span style="color:#0369a1; font-weight:bold;">${isOff ? '-' : item.company}</span></td>
+        <td>${guideDisplay}</td>
+        <td style="text-align:left; padding-left:10px;">${dailyHtml}</td>
+        <td>
+          <button class="btn btn-edit" style="padding:3px 8px; font-size:0.75rem;" onclick="openEditModal(${item.id})">수정/상세</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('addForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const category = document.getElementById('addCategory').value;
+    const startDate = document.getElementById('addStartDate').value;
+    const endDate = document.getElementById('addEndDate').value;
+
+    if (endDate < startDate) {
+      alert("마감일은 시작일보다 이전일 수 없습니다.");
+      return;
+    }
+
+    const dailyDetails = {};
+    document.querySelectorAll('.add-daily-input').forEach(input => {
+      const d = input.getAttribute('data-date');
+      dailyDetails[d] = input.value.trim();
+    });
+
+    const driverName = document.getElementById('addDriver').value;
+    const driverPhone = document.getElementById('addDriverPhone').value.trim();
+
+    if (driverName && driverPhone) {
+      masters.driverMap[driverName] = driverPhone;
+    }
+
+    const newItem = {
+      id: Date.now(),
+      startDate: startDate,
+      endDate: endDate,
+      driver: driverName,
+      driverPhone: driverPhone,
+      vehicle: document.getElementById('addVehicle').value,
+      company: category === 'OFF' ? '기타/비운행' : document.getElementById('addCompany').value,
+      guideName: category === 'OFF' ? '' : document.getElementById('addGuideName').value,
+      guidePhone: category === 'OFF' ? '' : document.getElementById('addGuidePhone').value,
+      dailyDetails: dailyDetails,
+      type: category,
+      isDualRun: document.getElementById('addIsDualRun').checked,
+      status: 'ACTIVE'
+    };
+
+    dispatches.push(newItem);
+    saveData('신규 배차/일정이 정상적으로 등록되었습니다.');
+    
+    this.reset();
+    document.getElementById('addIsDualRun').checked = false;
+    syncFormDateWithSelectedMonth();
+    toggleCategoryInput();
+  });
+
+  function toggleCategoryInput() {
+    const cat = document.getElementById('addCategory').value;
+    const compGroup = document.getElementById('groupCompany');
+    const guideGroup = document.getElementById('groupGuide');
+    const addComp = document.getElementById('addCompany');
+
+    if (cat === 'OFF') {
+      compGroup.style.display = 'none';
+      guideGroup.style.display = 'none';
+      addComp.removeAttribute('required');
+    } else {
+      compGroup.style.display = 'flex';
+      guideGroup.style.display = 'grid';
+      addComp.setAttribute('required', 'required');
+    }
+  }
+
+  function openEditModal(id) {
+    const item = dispatches.find(d => d.id === id);
+    if (!item) return;
+
+    document.getElementById('editId').value = item.id;
+    document.getElementById('editStartDate').value = item.startDate;
+    document.getElementById('editEndDate').value = item.endDate || item.startDate;
+    document.getElementById('editDriver').value = item.driver;
+    document.getElementById('editDriverPhone').value = item.driverPhone || masters.driverMap[item.driver] || '';
+    document.getElementById('editVehicle').value = item.vehicle;
+    document.getElementById('editCompany').value = item.company;
+    document.getElementById('editGuideName').value = item.guideName || '';
+    document.getElementById('editGuidePhone').value = item.guidePhone || '';
+    document.getElementById('editIsDualRun').checked = !!item.isDualRun;
+
+    generateEditDailyInputs(item.dailyDetails || {});
+
+    const compGroup = document.getElementById('groupEditCompany');
+    const guideGroup = document.getElementById('groupEditGuide');
+    if (item.type === 'OFF') {
+      compGroup.style.display = 'none';
+      guideGroup.style.display = 'none';
+    } else {
+      compGroup.style.display = 'flex';
+      guideGroup.style.display = 'grid';
+    }
+
+    const cancelBtn = document.getElementById('btnToggleCancel');
+    if (item.status === 'CANCELED') {
+      cancelBtn.innerText = '✅ 정상 복구하기';
+      cancelBtn.className = 'btn btn-restore';
+    } else {
+      cancelBtn.innerText = '🚫 일정/배차 취소 처리';
+      cancelBtn.className = 'btn btn-cancel';
+    }
+
+    document.getElementById('editModal').style.display = 'flex';
+  }
+
+  function saveEdit() {
+    const id = Number(document.getElementById('editId').value);
+    const item = dispatches.find(d => d.id === id);
+    if (item) {
+      const start = document.getElementById('editStartDate').value;
+      const end = document.getElementById('editEndDate').value;
+
+      if (end < start) {
+        alert("마감일은 시작일보다 이전일 수 없습니다.");
+        return;
+      }
+
+      const dailyDetails = {};
+      document.querySelectorAll('.edit-daily-input').forEach(input => {
+        const d = input.getAttribute('data-date');
+        dailyDetails[d] = input.value.trim();
+      });
+
+      const driverName = document.getElementById('editDriver').value;
+      const driverPhone = document.getElementById('editDriverPhone').value.trim();
+
+      if (driverName && driverPhone) {
+        masters.driverMap[driverName] = driverPhone;
+      }
+
+      item.startDate = start;
+      item.endDate = end;
+      item.driver = driverName;
+      item.driverPhone = driverPhone;
+      item.vehicle = document.getElementById('editVehicle').value;
+      item.isDualRun = document.getElementById('editIsDualRun').checked;
+
+      if (item.type !== 'OFF') {
+        item.company = document.getElementById('editCompany').value;
+        item.guideName = document.getElementById('editGuideName').value;
+        item.guidePhone = document.getElementById('editGuidePhone').value;
+      }
+      item.dailyDetails = dailyDetails;
+
+      saveData('일정 정보가 저장되었습니다.');
+      closeModal('editModal');
+    }
+  }
+
+  function toggleCancelStatus() {
+    const id = Number(document.getElementById('editId').value);
+    const item = dispatches.find(d => d.id === id);
+    if (item) {
+      item.status = item.status === 'CANCELED' ? 'ACTIVE' : 'CANCELED';
+      saveData(item.status === 'CANCELED' ? '배차가 취소되었습니다.' : '배차가 복구되었습니다.');
+      closeModal('editModal');
+    }
+  }
+
+  function openMasterModal() {
+    renderMasterTags();
+    document.getElementById('masterModal').style.display = 'flex';
+  }
+
+  function renderMasterTags() {
+    renderTagGroup('driverTags', masters.drivers, 'drivers', true);
+    renderTagGroup('vehicleTags', masters.vehicles, 'vehicles');
+    renderTagGroup('companyTags', masters.companies, 'companies');
+  }
+
+  function renderTagGroup(elemId, list, key, isDriver = false) {
+    const container = document.getElementById(elemId);
+    container.innerHTML = list.map(item => {
+      const phone = (isDriver && masters.driverMap[item]) ? ` (${masters.driverMap[item]})` : '';
+      return `
+        <span class="tag">
+          ${item}${phone}
+          <button class="btn-del" onclick="removeMasterItem('${key}', '${item}')">✕</button>
+        </span>
+      `;
+    }).join('');
+  }
+
+  function addDriverMaster() {
+    const nameInput = document.getElementById('newDriverNameInput');
+    const phoneInput = document.getElementById('newDriverPhoneInput');
+    const name = nameInput.value.trim();
+    const phone = phoneInput.value.trim();
+
+    if (name) {
+      if (!masters.drivers.includes(name)) masters.drivers.push(name);
+      if (phone) masters.driverMap[name] = phone;
+
+      nameInput.value = '';
+      phoneInput.value = '';
+      saveData(`기사님('${name}')이 추가되었습니다.`);
+      renderMasterTags();
+    }
+  }
+
+  function addMasterItem(key, inputId) {
+    const input = document.getElementById(inputId);
+    const val = input.value.trim();
+    if (val && !masters[key].includes(val)) {
+      masters[key].push(val);
+      input.value = '';
+      saveData(`항목('${val}')이 추가되었습니다.`);
+      renderMasterTags();
+    }
+  }
+
+  function removeMasterItem(key, val) {
+    if (confirm(`'${val}' 항목을 삭제하시겠습니까?`)) {
+      masters[key] = masters[key].filter(i => i !== val);
+      if (key === 'drivers' && masters.driverMap) {
+        delete masters.driverMap[val];
+      }
+      saveData(`항목('${val}')이 삭제되었습니다.`);
+      renderMasterTags();
+    }
+  }
+
+  function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+  }
+
+  function switchView(view) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    if (view === 'calendar') {
+      document.querySelectorAll('.tab-btn')[0].classList.add('active');
+      document.getElementById('calendarView').style.display = 'block';
+      document.getElementById('tableView').style.display = 'none';
+      renderCalendar();
+    } else {
+      document.querySelectorAll('.tab-btn')[1].classList.add('active');
+      document.getElementById('calendarView').style.display = 'none';
+      document.getElementById('tableView').style.display = 'block';
+      renderTable();
+    }
+  }
+
+  function exportJSON() {
+    const payload = { masters, dispatches };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `MJCT_배차일정관리_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  }
+
+  function importJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const imported = JSON.parse(e.target.result);
+        if (imported.masters && imported.dispatches) {
+          masters = imported.masters;
+          dispatches = imported.dispatches;
+        } else if (Array.isArray(imported)) {
+          dispatches = imported;
+        }
+        saveData('백업 데이터를 불러왔습니다!');
+      } catch (err) {
+        alert('파일을 읽는 중 오류가 발생했습니다.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // =========================================================
+  // 3. 초기 실행 및 5초 주기 서버 실시간 자동 동기화
+  // =========================================================
+  initMonthSelect();
+  loadData();
+  setInterval(loadData, 5000); // 5초마다 서버와 최신 데이터 동기화
+</script>
+</body>
+</html>
